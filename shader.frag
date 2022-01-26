@@ -95,8 +95,10 @@ void main()
     // camera = rotate_y(camera, time * 10);
     // ray = normalize(rotate_y(ray, time * 10));
     
-//    vec3 point_light = normalize(vec3(1.0, 1.0, 1.0));
-    vec3 point_light = vec3(abs(5.0 * sin(time / 7.0)));
+//    vec3 point_light = vec3(1.0, 1.0, 1.0); // static
+//    vec3 point_light = vec3(abs(5.0 * sin(time / 7.0))); // move from vec3(0.0) to vec3(5.0)
+    vec3 point_light =vec3(2.0 * abs(cos(time / 5.0)) + 0.5); // move from 2.5 to 0.5
+//    vec3 point_light = vec3(sin(time), 1.0, cos(time)); // rotate around
     float light_power = 1; // 1
 
     const int spheres_size = 3;    
@@ -105,7 +107,7 @@ void main()
                                     Sphere(0.3, vec3(-0.6, 0.2, -0.6))};
     
     const int planes_size = 1;
-    Plane planes[planes_size] = {Plane(vec3(0.0, 1.0, 0.0), 0.0)};
+    Plane planes[planes_size] = {Plane(normalize(vec3(0.0, 1.0, 0.0)), 0.0)};
 
     float len_to_i_point = -1.0;
     vec3 i_point = vec3(-1.0);
@@ -120,7 +122,7 @@ void main()
                 len_to_i_point = current_len;
                 i_point = camera + ray * len_to_i_point;
                 vec3 normal = normalize(i_point - spheres[i].center);
-                cosa = max(0.0, dot(normal, point_light));
+                cosa = max(0.0, dot(normal, normalize(point_light)));
             }
         }
     }
@@ -132,7 +134,7 @@ void main()
         {
             len_to_i_point = current_len;
             i_point = camera + ray * len_to_i_point;
-            cosa = dot(planes[i].normal, point_light);
+            cosa = dot(planes[i].normal, normalize(point_light));
         }
     }
     
