@@ -8,8 +8,6 @@ out vec4 frag_color;
 uniform float time;
 uniform vec2 screen;
 
-float light_power = 1; // 1
-
 //==================================================
 struct Plane
 {
@@ -76,6 +74,13 @@ vec3 rotate_z(vec3 point, float angle)
                 point.z);
 }
 //==================================================
+float sq_distance(vec3 a, vec3 b)
+{
+    return (a.x - b.x) * (a.x - b.x) +
+           (a.y - b.y) * (a.y - b.y) +
+           (a.z - b.z) * (a.z - b.z);
+}
+//==================================================
 
 void main()
 {    
@@ -87,20 +92,25 @@ void main()
     camera = rotate_x(camera, 15);
     ray = normalize(rotate_x(ray, 15));
 
-    camera = rotate_y(camera, time * 10);
-    ray = normalize(rotate_y(ray, time * 10));
+    // camera = rotate_y(camera, time * 10);
+    // ray = normalize(rotate_y(ray, time * 10));
     
-    vec3 point_light = normalize(vec3(1.0, 1.0, 1.0));
+//    vec3 point_light = normalize(vec3(1.0, 1.0, 1.0));
+    vec3 point_light = vec3(abs(5.0 * sin(time / 7.0)));
+    float light_power = 1; // 1
 
-    const int spheres_size = 2;
-    Sphere spheres[spheres_size] = {Sphere(0.2, vec3(-0.2, 0.0, 0.0)),
-                                   Sphere(0.3, vec3(0.2, 0.0, 0.0))};
+    const int spheres_size = 3;    
+    Sphere spheres[spheres_size] = {Sphere(0.2, vec3(-0.2 + 0.2, 0.0, 0.0)),
+                                    Sphere(0.3, vec3(0.2 + 0.2, 0.0, 0.0)),
+                                    Sphere(0.3, vec3(-0.6, 0.2, -0.6))};
     
     const int planes_size = 1;
     Plane planes[planes_size] = {Plane(vec3(0.0, 1.0, 0.0), 0.0)};
 
     float len_to_i_point = -1.0;
+    vec3 i_point = vec3(-1.0);
     float cosa = -1.0;
+
     for (int i = 0; i != spheres_size; ++i)
     {
         float current_len = is_intersect_sphere(spheres[i], camera, ray);
@@ -108,7 +118,7 @@ void main()
             if (current_len > 0.0 && (current_len < len_to_i_point || len_to_i_point < 0.0))
             {
                 len_to_i_point = current_len;
-                vec3 i_point = camera + ray * len_to_i_point;
+                i_point = camera + ray * len_to_i_point;
                 vec3 normal = normalize(i_point - spheres[i].center);
                 cosa = max(0.0, dot(normal, point_light));
             }
@@ -121,11 +131,14 @@ void main()
         if (current_len > 0.0 && (current_len < len_to_i_point || len_to_i_point < 0.0))
         {
             len_to_i_point = current_len;
-            vec3 i_point = camera + ray * len_to_i_point;
-            cosa = dot(planes[i].normal, point_light);            
+            i_point = camera + ray * len_to_i_point;
+            cosa = dot(planes[i].normal, point_light);
         }
     }
     
-    if (cosa < 0.0) frag_color = vec4(vec3(0.2), 1.0);
-    else frag_color = vec4(vec3(cosa * light_power), 1.0);
+    if (cosa >= 0.0)
+    {
+        cosa = cosa * light_power / sq_distance(i_point, point_light);
+        frag_color = vec4(vec3(cosa), 1.0);
+    } else frag_color = vec4(vec3(0.2), 1.0);
 }
