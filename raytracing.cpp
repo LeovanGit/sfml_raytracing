@@ -49,7 +49,7 @@ int main()
                     break;
             }
         }
-        
+
         win.clear(sf::Color::Black);
         shader.setUniform("time", clock.getElapsedTime().asSeconds());
         shader.setUniform("screen", win_size);
