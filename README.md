@@ -9,4 +9,4 @@
     F - decrease light power
 
 # Result
-![resul](./result.img)
+![result](img/result.png)
