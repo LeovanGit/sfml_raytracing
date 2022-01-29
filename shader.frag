@@ -5,12 +5,21 @@
 #define AMBIENT 0
 #define DIFFUSE 1
 #define REFLECTION 2
+#define MIRROR 3
 
 in vec4 gl_FragCoord;
 out vec4 frag_color;
 
 uniform float time;
 uniform vec2 screen;
+
+uniform vec2 mouse_pos;
+uniform float zoom;
+
+uniform bool shadows;
+uniform bool real_point;
+uniform bool mirror;
+uniform bool colors;
 
 struct Plane
 {
@@ -78,7 +87,7 @@ float sq_distance(vec3 a, vec3 b)
 
 // ----------------------------------------------------------------------
 vec3 point_light = vec3(1.0);
-float light_power = 1.0;
+uniform float light_power;
 float shadow_power = 0.6;
 float reflection_weakness = 30.0;
 
@@ -87,7 +96,8 @@ Sphere spheres[] =
     Sphere(0.25, vec3(0.3, 0.25, 0.3), vec3(0.76, 0.13, 0.13), REFLECTION),
     Sphere(0.25, vec3(-0.3, 0.25, 0.3), vec3(0.13, 0.68, 0.76), DIFFUSE),
     Sphere(0.25, vec3(0.0, 0.25, -0.3), vec3(1.0, 0.6, 0.47), DIFFUSE),
-    Sphere(0.4, vec3(-0.9, 0.25, -0.5), vec3(0.6, 0.99, 0.6), DIFFUSE)
+    Sphere(0.4, vec3(-0.9, 0.4, -0.5), vec3(0.6, 0.99, 0.6), MIRROR)//,
+//    Sphere(0.3, vec3(-1.2, 0.0, 0.3), vec3(0.6, 0.99, 0.6), MIRROR)
 };
 const int spheres_size = spheres.length();  
     
@@ -138,8 +148,16 @@ bool ray_cast(vec3 origin, vec3 ray, bool only_shadow_check)
             {
                 len_to_i_point = current_len;
                 normal = planes[i].normal;
-                color = planes[i].color;
                 material = planes[i].material;
+
+                // color = planes[i].color;
+                // only horizontal xz chessboard
+                int block_count = 10;
+                float block_size = 2 * plane_size / block_count;
+                ivec2 block = ivec2(int(abs(i_point.x - planes[i].d - plane_size) / block_size),
+                                    int(abs(i_point.z - planes[i].d - plane_size) / block_size));
+               if (bool((block.x % 2) ^ (block.y % 2))) color = vec3(0.62, 0.66, 0.52);
+               else color = vec3(0.9, 0.9, 0.77);
             }
         }
     }
@@ -163,10 +181,11 @@ float calc_shadow()
 }
 
 // call only after successful ray_cast() !!!
-float calc_light(vec3 ray)
+float calc_light(vec3 origin, vec3 ray)
 {
+    vec3 old_normal = normal;
     float cosa = max(0.0, dot(normal, normalize(point_light)));
-  
+ 
     if (material == REFLECTION) 
     {
         vec3 reflected_ray = ray - 2.0 * dot(ray, normal) * normal;
@@ -174,10 +193,31 @@ float calc_light(vec3 ray)
         cosb = pow(cosb, reflection_weakness);
         cosa += cosb;
     }
+    else if (material == MIRROR && mirror)
+    {
+        float rpl = 1.0f;
+        if (real_point) rpl = light_power / sq_distance(i_point, point_light);
+        vec3 reflected_ray = ray - 2.0 * dot(ray, normal) * normal;
+        if (ray_cast(i_point + normal * 0.0001, reflected_ray, false))
+        {
+            cosa = max(0.0, dot(normal, normalize(point_light))) * 0.95;
+        }
+        else
+        {
+            color = vec3(1.0); // bad
+            cosa = 0.2 * 0.95; // 0.95 just for did not merge mirror sphere and env
+        }
 
-    // cosa *= light_power / sq_distance(i_point, point_light); // real point light
-    return cosa * light_power * calc_shadow();
-//    return calc_shadow();
+        // create REFLECTION func in future
+        reflected_ray = ray - 2.0 * dot(ray, old_normal) * old_normal; // use first ray!
+        float cosb = max(0.0, dot(reflected_ray, normalize(point_light)));
+        cosb = pow(cosb, reflection_weakness);
+        return (cosa + cosb) * rpl * light_power;
+    }
+
+    if (real_point) cosa *= light_power / sq_distance(i_point, point_light); // real point light
+    if (shadows) return cosa * light_power * calc_shadow();
+    return cosa * light_power;
 }
 
 void main()
@@ -185,15 +225,22 @@ void main()
     vec2 xy = (gl_FragCoord.xy / vec2(screen.x, screen.y)) * vec2(2.0) - vec2(1.0);
     xy *= vec2(1.0, screen.y / screen.x);
 
-    vec3 camera = vec3(0.0, 0.0, 2.0);
+    vec3 camera = vec3(0.0, 0.0, zoom);
     vec3 ray = normalize(vec3(xy, -1.0));
 
-    camera = rotate_x(camera, 15);
-    ray = rotate_x(ray, 15);
+    camera = rotate_x(camera, 5);
+    ray = rotate_x(ray, 5);
 
-    camera = rotate_y(camera, time * 10);
-    ray = normalize(rotate_y(ray, time * 10));
+    camera = rotate_x(camera, mouse_pos.y);
+    ray = rotate_x(ray, mouse_pos.y);
 
-    if (ray_cast(camera, ray, false)) frag_color = vec4(vec3(calc_light(ray) * color), 1.0);
+    camera = rotate_y(camera, mouse_pos.x);
+    ray = rotate_y(ray, mouse_pos.x);
+
+    if (ray_cast(camera, ray, false)) 
+    {
+        if (colors) frag_color = vec4(vec3(calc_light(camera, ray) * color), 1.0);
+        else frag_color = vec4(vec3(calc_light(camera, ray)), 1.0);
+    }
     else frag_color = vec4(vec3(0.2), 1.0);
 }
