@@ -11,8 +11,10 @@ int main()
     sf::RenderWindow win(sf::VideoMode(win_size.x, win_size.y), "Ray tracing", sf::Style::Fullscreen);
     win.setMouseCursorVisible(false);
 
+    system("cd shaders/ && GLSL_include_parser/include main.frag");
+
     sf::Shader shader;
-    shader.loadFromFile("shader.frag", sf::Shader::Fragment);
+    shader.loadFromFile("shaders/shader.frag", sf::Shader::Fragment);
 
     sf::Texture texture;
     texture.create(win_size.x, win_size.y);
